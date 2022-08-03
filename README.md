@@ -16,5 +16,5 @@ Simple python script to randomize the filenames of all the files inside a folder
 
 
   Warning:
-  - This is just a hobby project for myself abd there are likley more than a few bugs. Remember to make backups.
+  - This is just a hobby project for myself and there are likely more than a few bugs. Remember to make backups.
   
