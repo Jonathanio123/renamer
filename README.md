@@ -11,10 +11,10 @@ Simple python script to randomize the filenames of all the files inside a folder
   - In the same directory as renamer.py, it will create a .name_backups. Inside it will create a txt file with the old filenames and the new ones.
   
   Optional dependencies:
-  - [tqdm](https://github.com/tqdm/tqdm) - Too show progress of renaming files.
-  - [Pillow](https://github.com/python-pillow/Pillow) - Too convert webp to .jpeg
+  - [tqdm](https://github.com/tqdm/tqdm) - To show progress of renaming files.
+  - [Pillow](https://github.com/python-pillow/Pillow) - To convert webp to .jpeg
 
 
   Warning:
-  - This is just a hobby project for myself there are likley more than a few bugs. Remember to make backups.
+  - This is just a hobby project for myself abd there are likley more than a few bugs. Remember to make backups.
   
