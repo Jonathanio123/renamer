@@ -12,4 +12,8 @@ Simple python script to randomize the filenames of all the files inside a folder
   Optional dependencys:
   - [tqdm](https://github.com/tqdm/tqdm) - Too show progress of renaming files.
   - [Pillow](https://github.com/python-pillow/Pillow) - Too convert webp to .jpeg
+
+
+  Warning:
+  - This is just a hobby project for myself there are likley more than a few bugs. Remember to make backups.
   
