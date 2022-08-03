@@ -6,6 +6,7 @@ Simple python script to randomize the filenames of all the files inside a folder
   The createFiles.py is just for testing.
  
  Notes:
+  - Random names are made with uuid4()
   - It will ignore all dotfiles and folders, therefore, it will not recursively rename files inside folders.
   - It will ask to convert .webp to .jpegs, it will change the extension BEFORE randomizing the filenames.
   - In the same directory as renamer.py, it will create a .name_backups. Inside it will create a txt file with the old filenames and the new ones. Which you can use to restore the old filenames manually or with the undoRenamer.py
