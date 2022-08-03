@@ -1,11 +1,12 @@
-#!/usr/bin/python3
 from datetime import datetime
+from PIL import Image
 from pathlib import Path
 import os
 import sys
 import uuid
 from tqdm import tqdm
 
+# There should be no need to runs this as root.
 if os.name == 'posix':
     if os.geteuid() == 0:
         print("Don't run this script as root.")
@@ -15,6 +16,26 @@ if os.name == 'posix':
 backupFolder = ".name_backups"
 renamingFolder = "Example_folder"
 
+# Simple y/n input function
+def inputYN(prompt, abort=False, defaultYes=True):
+    if defaultYes:
+        default = "[Y/n]:"
+    else:
+        default = "[y/N]:"
+
+    userInput = input(f"{prompt} {default} ").lower()
+
+    if userInput == "n" or (not defaultYes and userInput == ""):
+        if abort:
+            print("Aborting")
+            sys.exit(1)
+        return False
+
+    if userInput == "y" or (defaultYes and userInput == ""):
+        return True
+    
+
+# User has to provide the folder with files to rename
 if len(sys.argv) > 1:
     renamingFolder = str(sys.argv[1])
 
@@ -23,11 +44,16 @@ if not Path(renamingFolder).exists():
     print(f"Folder '{renamingFolder}' does not exist. Pass folder name as an argument.\nExample: ./renamer.py 'folder with files to be renamed'")
     sys.exit(2)
 
-userInput = input(f"Rename all files in directory '{renamingFolder}'? [y/N]: ").lower()
-if userInput != "y":
-    print("Aborting")
-    sys.exit(1)
 
+inputYN(f"Rename all files in directory '{renamingFolder}'?", True, False)
+if "PIL" in sys.modules:
+    convertWebp = inputYN("Convert all .webp to .jpeg before renaming?")
+else:
+    print("PIL library not installed, unable to convert .webp to .jpeg.")
+    convertWebp = False
+
+
+# Creates a a backup folder where it will create file with old filenames and new ones
 if not Path(backupFolder).exists():
     os.mkdir(backupFolder)
     
@@ -40,8 +66,23 @@ Path(backPath).touch(exist_ok=True)
 oldNames = list()
 with os.scandir(renamingFolder) as dir:
     for entry in dir:
+        filename, ext = os.path.splitext(entry.name)
         if entry.is_file() and entry.name[0] != ".":
-            oldNames.append(entry.name)
+            if ext == ".webp" and convertWebp:
+                try:
+                    img = Image.open(renamingFolder+"/"+entry.name).convert("RGB")
+                    img.save(renamingFolder+"/"+filename+".jpeg", "jpeg")
+                except Exception as error:
+                    print(error)
+                    try:
+                        os.remove(renamingFolder+"/"+filename+".jpeg")
+                    except:
+                        pass
+                else:
+                    os.remove(renamingFolder+"/"+entry.name)
+                    oldNames.append(filename+".jpeg")
+            else:
+                oldNames.append(entry.name)
 
 
 fileLen = len(oldNames)
@@ -66,13 +107,19 @@ while not allUnique:
         allUnique = True
 
 
-
+# Writes the backup file with old and new filenames
 with open(backPath, "w") as fileBackup:
     for i in range(fileLen):
         fileBackup.write(oldNames[i] + "    " + newNames[i] + "\n")
 
-for i in tqdm(range(fileLen), ncols=100):
-    os.rename(f"{renamingFolder}/{oldNames[i]}", f"{renamingFolder}/{newNames[i]}")
+# For loop that renames files
+if "tqdm" in sys.modules:
+    for i in tqdm(range(fileLen), ncols=100):
+        os.rename(f"{renamingFolder}/{oldNames[i]}", f"{renamingFolder}/{newNames[i]}")
+else:
+    print("Tqdm library not installed, not showing progress bar.")
+    for i in range(fileLen):
+        os.rename(f"{renamingFolder}/{oldNames[i]}", f"{renamingFolder}/{newNames[i]}")
 
 print("Finished renaming files.")
 sys.exit()
