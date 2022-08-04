@@ -1,13 +1,10 @@
 from datetime import datetime
+from PIL import Image
 from pathlib import Path
 import os
 import sys
 import uuid
-try:
-    from PIL import Image
-    from tqdm import tqdm
-except:
-    pass
+from tqdm import tqdm
 
 # There should be no need to runs this as root.
 if os.name == 'posix':

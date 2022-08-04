@@ -4,11 +4,8 @@ from datetime import datetime
 from posixpath import split
 import sys
 import os
-try:
-    from PIL import Image
-    from tqdm import tqdm
-except:
-    pass
+from tqdm import tqdm
+from PIL import Image
 
 
 backupFolder = ".name_backups"
