@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from helpers import inputYN
 import os
 import sys
 import uuid
@@ -19,24 +20,6 @@ if os.name == 'posix':
 backupFolder = ".name_backups"
 renamingFolder = "Example_folder"
 
-# Simple y/n input function
-def inputYN(prompt, abort=False, defaultYes=True):
-    if defaultYes:
-        default = "[Y/n]:"
-    else:
-        default = "[y/N]:"
-
-    userInput = input(f"{prompt} {default} ").lower()
-
-    if userInput == "n" or (not defaultYes and userInput == ""):
-        if abort:
-            print("Aborting")
-            sys.exit(1)
-        return False
-
-    if userInput == "y" or (defaultYes and userInput == ""):
-        return True
-    
 
 # User has to provide the folder with files to rename
 if len(sys.argv) > 1:

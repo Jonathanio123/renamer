@@ -1,7 +1,6 @@
-from genericpath import exists
 from pathlib import Path
 from datetime import datetime
-from posixpath import split
+from helpers import inputYN
 import sys
 import os
 try:
@@ -14,23 +13,6 @@ except:
 backupFolder = ".name_backups"
 renamingFolder = "Example_folder"
 
-# Simple y/n input function
-def inputYN(prompt, abort=False, defaultYes=True):
-    if defaultYes:
-        default = "[Y/n]:"
-    else:
-        default = "[y/N]:"
-
-    userInput = input(f"{prompt} {default} ").lower()
-
-    if userInput == "n" or (not defaultYes and userInput == ""):
-        if abort:
-            print("Aborting")
-            sys.exit(1)
-        return False
-
-    if userInput == "y" or (defaultYes and userInput == ""):
-        return True
 
 if not Path(backupFolder).exists():
     print(f"{backupFolder} folder not found!\nAborting")
