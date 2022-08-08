@@ -1,7 +1,7 @@
 from datetime import datetime
 from email import parser
 from math import ceil
-from multiprocessing import Pool
+from multiprocessing import Pool, Process
 import multiprocessing
 from pathlib import Path
 import shutil
@@ -19,28 +19,47 @@ except:
 
 
 def renamer(shard):
-    for files in shard:
-        os.rename(f"{renamingFolder}/{files[0]}", f"{renamingFolder}/{files[1]}")
+    if len(shard) > 1:
+        renamingFolder = shard[-1]
+        for files in shard[:-2]:
+            os.rename(f"{renamingFolder}/{files[0]}", f"{renamingFolder}/{files[1]}")
     print(f'Process: {os.getpid()} | Finished.')
 
 
 def webmConverter(args):
-    """ inputFile, outputFile, ffmpegPath, filename, entry.name = args"""
-    inputFile, outputFile, ffmpegPath, filename = args
+    """ inputFile, outputFile, ffmpegPath, filename = args"""
+    inputFile, outputFile, ffmpegPath, filename, multi = args
+
     try:
-        (
-            ffmpeg
-            .input(inputFile)
-            .output(outputFile)
-            .run(cmd=ffmpegPath,quiet=True)
-        )
+        if multi:
+            (
+                ffmpeg
+                .input(inputFile)
+                .output(outputFile, **{'threads': 1})
+                .run(cmd=ffmpegPath,quiet=True)
+            )
+        else:
+            (
+                ffmpeg
+                .input(inputFile)
+                .output(outputFile)
+                .run(cmd=ffmpegPath,quiet=True)
+            )
+
     except Exception as error:
         print(error)
         print(f"Error converting {filename}.webm to .mp4 format.")
-        oldNames.append(entry.name)
+        if multi:
+            return filename+".webm"
+        else:
+            oldNames.append(filename+".webm")
+
     else:
         os.remove(inputFile)
-        oldNames.append(filename+".mp4")
+        if multi:
+            return filename+".mp4"
+        else:
+            oldNames.append(filename+".mp4")
 
 
 
@@ -54,6 +73,7 @@ if __name__ == '__main__':
     convertWebp = False
     ffmpegInstalled = False
     ffmpegPath = "ffmpeg"
+    cpuCores = os.cpu_count()
 
 
 
@@ -80,7 +100,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--multithreading", 
                         required=False,
                         action='store_true',
-                        help="WARNING MIGHT BE BUGGY! Enable multiprocessing. Is a little bit faster but might contain bugs.")
+                        help="WARNING MIGHT BE BUGGY! USE AT YOUR OWN RISK! Enable multiprocessing.")
 
     parser.add_argument("-cp", "--convertP", 
                         required=False,
@@ -155,7 +175,7 @@ if __name__ == '__main__':
     if not Path(backupFolder).exists():
         os.mkdir(backupFolder)
         
-    backPath = f"{backupFolder}/{renamingFolder.strip(' / ')}-{datetime.now().strftime('%d.%m.%y_%H%M')}#1.txt"
+    backPath = f"{backupFolder}/{renamingFolder.strip(' / ')}#&#{datetime.now().strftime('%d.%m.%y_%H%M')}#1.txt"
     if Path(backPath).exists():
         backPath = backPath[:-6] + f"#{int(backPath[-5]) +1}" + backPath[-4:]
     Path(backPath).touch(exist_ok=True)
@@ -163,7 +183,8 @@ if __name__ == '__main__':
 
     oldNames = list()
     if multiprocessingEnabled:
-        multiprocessing.set_start_method('spawn')
+        pool = Pool(cpuCores)
+        processes = []
 
     with os.scandir(renamingFolder) as dir:
         for entry in dir:
@@ -189,19 +210,28 @@ if __name__ == '__main__':
                         os.remove(inputFile)
                         oldNames.append(filename+".jpeg")
                 
-                if ext == ".webm" and convertWebm:
+                elif ext == ".webm" and convertWebm:
                     inputFile = f"{renamingFolder}/{filename}.webm"
                     outputFile = f"{renamingFolder}/{filename}.mp4"
 
                     if multiprocessingEnabled:
-                        print("Multithreading not supported for webm converstion.")
-                        webmConverter([inputFile, outputFile, ffmpegPath, filename])
-                        continue
+                        p = pool.apply_async(webmConverter, args=([inputFile, outputFile, ffmpegPath, filename, True],))
+                        processes.append(p)
+
                     else:
-                        webmConverter([inputFile, outputFile, ffmpegPath, filename])
+                        webmConverter([inputFile, outputFile, ffmpegPath, filename, False])
 
                 else:
                     oldNames.append(entry.name)
+
+    if multiprocessingEnabled:
+        pool.close()
+        pool.join()
+        
+        for p in processes:
+            value = p.get()
+            if value:
+                oldNames.append(value)
 
 
     fileLen = len(oldNames)
@@ -248,16 +278,20 @@ if __name__ == '__main__':
     else:
         filesPerWorkerList = list()
         filesPerWorkerList.append([])
-        filesPerWorker = ceil(fileLen / os.cpu_count())
+        filesPerWorker = ceil(fileLen / cpuCores)
         i = 0
         j = 0
         for line in range(fileLen):
             i = i + 1
             filesPerWorkerList[j].append([oldNames[line],newNames[line]])
             if i == filesPerWorker:
+                filesPerWorkerList[j].append(renamingFolder)
                 i = 0
                 j = j + 1 
                 filesPerWorkerList.append([])
+        
+        if filesPerWorkerList[-1][-1] != renamingFolder:
+            filesPerWorkerList[-1].append(renamingFolder)
 
         print("Renaming files...")
         timeBefore = datetime.now()
