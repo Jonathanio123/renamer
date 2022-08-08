@@ -1,6 +1,8 @@
 .name_backups/
 tmp.py
+tmp
 .venv
 Example_folder
 __pycache__
 ffmpeg
+.vscode
