@@ -3,6 +3,7 @@ from email import parser
 from math import ceil
 from multiprocessing import Pool, Process
 import multiprocessing
+from ntpath import join
 from pathlib import Path
 import shutil
 from helpers import inputYN
@@ -19,11 +20,17 @@ except:
 
 
 def renamer(shard):
-    if len(shard) > 1:
-        renamingFolder = shard[-1]
-        for files in shard[:-2]:
-            os.rename(f"{renamingFolder}/{files[0]}", f"{renamingFolder}/{files[1]}")
+    err = None
+    if len(shard) >= 1:
+        for files in shard:
+            try:
+                os.rename(f"{files[2]}/{files[0]}", f"{files[2]}/{files[1]}")
+            except Exception as e:
+                if not err:
+                    err = []
+                err.append([files[0], files[1], e])
     print(f'Process: {os.getpid()} | Finished.')
+    return err
 
 
 def webmConverter(args):
@@ -31,20 +38,13 @@ def webmConverter(args):
     inputFile, outputFile, ffmpegPath, filename, multi = args
 
     try:
-        if multi:
-            (
-                ffmpeg
-                .input(inputFile)
-                .output(outputFile, **{'threads': 1})
-                .run(cmd=ffmpegPath,quiet=True)
-            )
-        else:
-            (
-                ffmpeg
-                .input(inputFile)
-                .output(outputFile)
-                .run(cmd=ffmpegPath,quiet=True)
-            )
+
+        (
+            ffmpeg
+            .input(inputFile)
+            .output(outputFile)
+            .run(cmd=ffmpegPath,quiet=True)
+        )
 
     except Exception as error:
         print(error)
@@ -60,6 +60,10 @@ def webmConverter(args):
             return filename+".mp4"
         else:
             oldNames.append(filename+".mp4")
+
+
+def webpConverter(args):
+    """"""
 
 
 
@@ -137,7 +141,6 @@ if __name__ == '__main__':
         multiprocessingEnabled = True
     
 
-
     if not args.script:
         inputYN(f"Rename all files in directory '{renamingFolder}'?", True, False)
     
@@ -186,6 +189,8 @@ if __name__ == '__main__':
         pool = Pool(cpuCores)
         processes = []
 
+
+    timeBefore = datetime.now()
     with os.scandir(renamingFolder) as dir:
         for entry in dir:
             filename, ext = os.path.splitext(entry.name)
@@ -232,6 +237,9 @@ if __name__ == '__main__':
             value = p.get()
             if value:
                 oldNames.append(value)
+    
+    if convertWebm or convertWebp:
+        print(f"Files converted in {(datetime.now() - timeBefore).total_seconds()} seconds.")
 
 
     fileLen = len(oldNames)
@@ -276,6 +284,7 @@ if __name__ == '__main__':
                 os.rename(f"{renamingFolder}/{oldNames[i]}", f"{renamingFolder}/{newNames[i]}")
             print(f"{fileLen} files renamed in {(datetime.now() - timeBefore).total_seconds()} seconds.")
     else:
+        fileCounter = 0
         filesPerWorkerList = list()
         filesPerWorkerList.append([])
         filesPerWorker = ceil(fileLen / cpuCores)
@@ -283,20 +292,39 @@ if __name__ == '__main__':
         j = 0
         for line in range(fileLen):
             i = i + 1
-            filesPerWorkerList[j].append([oldNames[line],newNames[line]])
+            filesPerWorkerList[j].append([oldNames[line],newNames[line], renamingFolder])
+            fileCounter = fileCounter + 1
             if i == filesPerWorker:
-                filesPerWorkerList[j].append(renamingFolder)
                 i = 0
                 j = j + 1 
                 filesPerWorkerList.append([])
-        
-        if filesPerWorkerList[-1][-1] != renamingFolder:
-            filesPerWorkerList[-1].append(renamingFolder)
 
-        print("Renaming files...")
+
+
+
+        
+
+        print(f"Renaming {fileCounter} files...")
         timeBefore = datetime.now()
         with Pool() as pool:
             r = pool.map(renamer, filesPerWorkerList)
+        
+        err = False
+        for ret in r:
+            if ret:
+                for job in ret:
+                    if job:
+                        err = True
+                        print("---------")
+                        print(f"File '{job[0]}' could not be renamed to '{job[1]}' !")
+                        print(job[2])
+                        print("---------")
+
+        if err:
+            print("Some files could not be renamed!")
+
+
+                
         
         print(f"{fileLen} files renamed in {(datetime.now() - timeBefore).total_seconds()} seconds.")
             
