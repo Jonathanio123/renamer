@@ -1,9 +1,7 @@
 from datetime import datetime
 from email import parser
 from math import ceil
-from multiprocessing import Pool, Process
-import multiprocessing
-from ntpath import join
+from multiprocessing import Pool
 from pathlib import Path
 import shutil
 from helpers import inputYN, mainParser
@@ -19,7 +17,7 @@ except:
 
 
 
-def renamer(shard):
+def renamerWorker(shard):
     err = None
     if len(shard) >= 1:
         for files in shard:
@@ -104,9 +102,12 @@ if __name__ == '__main__':
 
     # There should be no need to runs this as root.
     if os.name == 'posix':
+        systemLinux = True
         if os.geteuid() == 0:
             print("Don't run this script as root.")
             sys.exit(1)
+    else:
+        systemLinux = False
 
 
     parser = mainParser()
@@ -120,6 +121,7 @@ if __name__ == '__main__':
 
     if args.backup:
         backupFolder = args.backup.strip("\\")
+
 
     if args.cpus:
         cpuCores = int(args.cpus)
@@ -145,7 +147,7 @@ if __name__ == '__main__':
         print("Converting all .webp to .jpeg before renaming.")
         convertWebp = True
     elif not args.script:
-        convertWebp = inputYN("Convert all .webp to .jpeg before renaming?")
+        convertWebp = inputYN("Convert all .webp to .jpeg before renaming?", defaultYes=False)
 
     
 
@@ -162,16 +164,23 @@ if __name__ == '__main__':
         print("Converting all .webm to .mp4 before renaming.")
         convertWebm = True
     elif not args.script:
-        convertWebm = inputYN("Convert all .webm to .mp4 before renaming?")
+        convertWebm = inputYN("Convert all .webm to .mp4 before renaming?", defaultYes=False)
     
 
 
 
     # Creates a a backup folder where it will create file with old filenames and new ones
     if not Path(backupFolder).exists():
-        os.mkdir(backupFolder)
-        
-    backPath = f"{backupFolder}/{renamingFolder.strip(' / ')}#&#{datetime.now().strftime('%d.%m.%y_%H%M')}#1.txt"
+        os.makedirs(backupFolder)
+
+
+    if systemLinux:
+        strippedRenamingFolder = os.path.basename(renamingFolder)
+    else:
+        strippedRenamingFolder = os.path.basename(renamingFolder).split("\\")[-1]
+
+
+    backPath = f"{backupFolder}/{strippedRenamingFolder.strip(' / ')}#&#{datetime.now().strftime('%d.%m.%y_%H%M')}#1.txt"
     if Path(backPath).exists():
         backPath = backPath[:-6] + f"#{int(backPath[-5]) +1}" + backPath[-4:]
     Path(backPath).touch(exist_ok=True)
@@ -237,13 +246,13 @@ if __name__ == '__main__':
     while not allUnique:
         newNames = list()
         for i in range(fileLen):
-            newNames.append(str(uuid.uuid4()) + "." + oldNames[i].split(".")[-1])
+            newNames.append(str(uuid.uuid4().hex) + "." + oldNames[i].split(".")[-1])
         if fileLen != len(newNames):
             print(f"Not same amount of new names generated as there are old names. This should not happen!\n\
                 Len files: {fileLen} != new filenames: {len(newNames)}")
             sys.exit(3)
         elif fileLen > len(set(newNames)):
-            print("Duplicate in list! Generating new names.")
+            print(f"Duplicate names in list! Generating new names.")
         else:
             allUnique = True
 
@@ -282,16 +291,12 @@ if __name__ == '__main__':
                 i = 0
                 j = j + 1 
                 filesPerWorkerList.append([])
-
-
-
-
         
 
         print(f"Renaming {fileCounter} files...")
         timeBefore = datetime.now()
-        with Pool() as pool:
-            r = pool.map(renamer, filesPerWorkerList)
+        with Pool(cpuCores) as pool:
+            r = pool.map(renamerWorker, filesPerWorkerList)
         
         err = False
         for ret in r:

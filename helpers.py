@@ -22,7 +22,8 @@ def inputYN(prompt, abort=False, defaultYes=True):
 
 def mainParser():
     parser = argparse.ArgumentParser(description="Python script to rename all files (except: dotfiles and folders) inside a folder with random names.\
-                                                    It will create a backup folder '.name_backups' where a file with old names and new names are saved")
+                                                    It will create a backup folder '.name_backups' where a file with old names and new names are saved.\
+                                                        Can also convert .webp to .jpeg and .webm to .mp4.")
 
     parser.add_argument('Path',
                        metavar='<path>',
@@ -60,5 +61,19 @@ def mainParser():
                        choices=range(1,os.cpu_count()+1),
                        help='Maximum threads to use. Default is to use all cpu cores. Has no effect without the "-m" flag')
 
+    return parser
+
+def undoParser():
+    parser = argparse.ArgumentParser(description="Python script to undo renaming. Needs backup folder and file to work.")
+
+    parser.add_argument('Path',
+                       metavar='<path>',
+                       type=str,
+                       help='Path to folder with files you want to undo renaming process.')
+
+    parser.add_argument('--backup',
+                       metavar="<path>",
+                       type=str,
+                       help='Path to backup folder. Default path is .name_backups/')
     return parser
     
