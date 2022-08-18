@@ -12,6 +12,7 @@ except:
     pass
 
 
+
 backupFolder = ".name_backups"
 renamingFolder = "Example_folder"
 ffmpegPath = "ffmpeg"

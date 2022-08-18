@@ -61,3 +61,4 @@ def mainParser():
                        help='Maximum threads to use. Default is to use all cpu cores. Has no effect without the "-m" flag')
 
     return parser
+    
