@@ -1,4 +1,4 @@
 # Optional dependencies
 tqdm
 Pillow
-ffmpeg
+ffmpeg-python
