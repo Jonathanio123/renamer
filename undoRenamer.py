@@ -1,7 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 import shutil
-from helpers import inputYN
+from helpers import inputYN, undoParser
 import sys
 import os
 try:
@@ -10,6 +10,7 @@ try:
     import ffmpeg
 except:
     pass
+
 
 
 backupFolder = ".name_backups"
@@ -21,6 +22,17 @@ elif Path("ffmpeg/bin/ffmpeg.exe").exists():
         ffmpegPath = "ffmpeg/bin/ffmpeg.exe"
 
 
+parser = undoParser()
+
+args = parser.parse_args()
+
+if args.Path:
+    renamingFolder = args.Path.strip("\\")
+
+if args.backup:
+    backupFolder = args.backup.strip("\\")
+
+
 if not Path(backupFolder).exists():
     print(f"{backupFolder} folder not found!\nAborting")
     sys.exit(1)
@@ -29,20 +41,20 @@ newestBackup = None
 
 with os.scandir(backupFolder) as dir:
     for entry in dir:
-        if renamingFolder not in entry.name or entry.name[0] == ".":
+        if renamingFolder.strip(".\\") not in entry.name or entry.name[0] == ".":
             continue
         elif newestBackup is None:
             newestBackup = entry.name
             continue
 
-        newestDate = datetime.strptime(str(newestBackup).split("#&#")[1].split("#")[0],'%d.%m.%y_%H%M')
-        currentDate = datetime.strptime(str(entry.name).split("#&#")[1].split("#")[0],'%d.%m.%y_%H%M')
+        newestDate = datetime.strptime(str(newestBackup).split("#&#")[-1].split("#")[0],'%d.%m.%y_%H%M')
+        currentDate = datetime.strptime(str(entry.name).split("#&#")[-1].split("#")[0],'%d.%m.%y_%H%M')
 
         if currentDate > newestDate:
             newestBackup = entry.name
 
         elif currentDate == newestDate:
-            if int(str(entry.name).split("#")[1].split(".")[0]) > int(newestBackup.split("#")[1].split(".")[0]):
+            if int(str(entry.name).split("#")[-1].split(".")[0]) > int(newestBackup.split("#")[-1].split(".")[0]):
                 newestBackup = entry.name
     
 if newestBackup is None:

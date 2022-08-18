@@ -1,16 +1,13 @@
 from datetime import datetime
 from email import parser
 from math import ceil
-from multiprocessing import Pool, Process
-import multiprocessing
-from ntpath import join
+from multiprocessing import Pool
 from pathlib import Path
 import shutil
-from helpers import inputYN
+from helpers import inputYN, mainParser
 import os
 import sys
 import uuid
-import argparse
 try:
     from PIL import Image
     from tqdm import tqdm
@@ -19,7 +16,8 @@ except:
     pass
 
 
-def renamer(shard):
+
+def renamerWorker(shard):
     err = None
     if len(shard) >= 1:
         for files in shard:
@@ -63,7 +61,28 @@ def webmConverter(args):
 
 
 def webpConverter(args):
-    """"""
+    """ inputFile, outputFile, filename, multi = args"""
+    inputFile, outputFile, filename, multi = args
+
+    try:
+        img = Image.open(inputFile).convert("RGB")
+        img.save(outputFile, "jpeg")
+    except Exception as error:
+        print(error)
+        try:
+            os.remove(outputFile)
+        except:
+            pass
+        if multi:
+            return filename+".webp"
+        else:
+            oldNames.append(filename+".webp")
+    else:
+        os.remove(inputFile)
+        if multi:
+            return filename+".jpeg"
+        else:
+            oldNames.append(filename+".jpeg")
 
 
 
@@ -83,43 +102,15 @@ if __name__ == '__main__':
 
     # There should be no need to runs this as root.
     if os.name == 'posix':
+        systemLinux = True
         if os.geteuid() == 0:
             print("Don't run this script as root.")
             sys.exit(1)
+    else:
+        systemLinux = False
 
 
-    parser = argparse.ArgumentParser(description="Python script to rename all files (except: dotfiles and folders) inside a folder with random names.\
-                                                    It will create a backup folder '.name_backups' where a file with old names and new names are saved")
-
-    parser.add_argument('Path',
-                       metavar='<path>',
-                       type=str,
-                       help='Path to folder with files you want renamed.')
-
-    parser.add_argument('--backup',
-                       metavar="<path>",
-                       type=str,
-                       help='Path to backup folder. Default path is .name_backups/')
-
-    parser.add_argument("-m", "--multithreading", 
-                        required=False,
-                        action='store_true',
-                        help="WARNING MIGHT BE BUGGY! USE AT YOUR OWN RISK! Enable multiprocessing.")
-
-    parser.add_argument("-cp", "--convertP", 
-                        required=False,
-                        action='store_true',
-                        help="Will convert .webp to .jpeg without asking the user.")
-    
-    parser.add_argument("-cv", "--convertV", 
-                        required=False,
-                        action='store_true',
-                        help="Will convert .webm to .mp4 without asking the user.")
-    
-    parser.add_argument("-s", "--script", 
-                        required=False,
-                        action='store_true',
-                        help="Will skip all user input, useful when ran by other scripts. Can be combined with -c")
+    parser = mainParser()
 
     args = parser.parse_args()
     
@@ -130,6 +121,10 @@ if __name__ == '__main__':
 
     if args.backup:
         backupFolder = args.backup.strip("\\")
+
+
+    if args.cpus:
+        cpuCores = int(args.cpus)
 
 
     if not Path(renamingFolder).is_dir():
@@ -152,7 +147,7 @@ if __name__ == '__main__':
         print("Converting all .webp to .jpeg before renaming.")
         convertWebp = True
     elif not args.script:
-        convertWebp = inputYN("Convert all .webp to .jpeg before renaming?")
+        convertWebp = inputYN("Convert all .webp to .jpeg before renaming?", defaultYes=False)
 
     
 
@@ -169,16 +164,23 @@ if __name__ == '__main__':
         print("Converting all .webm to .mp4 before renaming.")
         convertWebm = True
     elif not args.script:
-        convertWebm = inputYN("Convert all .webm to .mp4 before renaming?")
+        convertWebm = inputYN("Convert all .webm to .mp4 before renaming?", defaultYes=False)
     
 
 
 
     # Creates a a backup folder where it will create file with old filenames and new ones
     if not Path(backupFolder).exists():
-        os.mkdir(backupFolder)
-        
-    backPath = f"{backupFolder}/{renamingFolder.strip(' / ')}#&#{datetime.now().strftime('%d.%m.%y_%H%M')}#1.txt"
+        os.makedirs(backupFolder)
+
+
+    if systemLinux:
+        strippedRenamingFolder = os.path.basename(renamingFolder)
+    else:
+        strippedRenamingFolder = os.path.basename(renamingFolder).split("\\")[-1]
+
+
+    backPath = f"{backupFolder}/{strippedRenamingFolder.strip(' / ')}#&#{datetime.now().strftime('%d.%m.%y_%H%M')}#1.txt"
     if Path(backPath).exists():
         backPath = backPath[:-6] + f"#{int(backPath[-5]) +1}" + backPath[-4:]
     Path(backPath).touch(exist_ok=True)
@@ -200,20 +202,11 @@ if __name__ == '__main__':
                     inputFile = f"{renamingFolder}/{filename}.webp"
                     outputFile = f"{renamingFolder}/{filename}.jpeg"
 
-                    try:
-                        img = Image.open(inputFile).convert("RGB")
-                        img.save(outputFile, "jpeg")
-                    except Exception as error:
-                        print(error)
-                        try:
-                            os.remove(outputFile)
-                        except:
-                            pass
-                        oldNames.append(entry.name)
-
+                    if multiprocessingEnabled:
+                        p = pool.apply_async(webpConverter, args=([inputFile, outputFile, filename, True],))
+                        processes.append(p)
                     else:
-                        os.remove(inputFile)
-                        oldNames.append(filename+".jpeg")
+                        webpConverter([inputFile, outputFile, filename, False])
                 
                 elif ext == ".webm" and convertWebm:
                     inputFile = f"{renamingFolder}/{filename}.webm"
@@ -253,13 +246,13 @@ if __name__ == '__main__':
     while not allUnique:
         newNames = list()
         for i in range(fileLen):
-            newNames.append(str(uuid.uuid4()) + "." + oldNames[i].split(".")[-1])
+            newNames.append(str(uuid.uuid4().hex) + "." + oldNames[i].split(".")[-1])
         if fileLen != len(newNames):
             print(f"Not same amount of new names generated as there are old names. This should not happen!\n\
                 Len files: {fileLen} != new filenames: {len(newNames)}")
             sys.exit(3)
         elif fileLen > len(set(newNames)):
-            print("Duplicate in list! Generating new names.")
+            print(f"Duplicate names in list! Generating new names.")
         else:
             allUnique = True
 
@@ -298,16 +291,12 @@ if __name__ == '__main__':
                 i = 0
                 j = j + 1 
                 filesPerWorkerList.append([])
-
-
-
-
         
 
         print(f"Renaming {fileCounter} files...")
         timeBefore = datetime.now()
-        with Pool() as pool:
-            r = pool.map(renamer, filesPerWorkerList)
+        with Pool(cpuCores) as pool:
+            r = pool.map(renamerWorker, filesPerWorkerList)
         
         err = False
         for ret in r:
