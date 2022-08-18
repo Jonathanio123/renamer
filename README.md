@@ -2,7 +2,7 @@ Simple python script to randomize the filenames of all the files inside a folder
  
  How to use:
   The main file is renamer.py. To specify the folder with files you want renamed, pass its name/path to the script as an argument. 
-  For example, if you want to specify a folder in the same directory as renamer.py then run 'renamer.py <folder name> '.
+  For example, if you want to specify a folder in the same directory as renamer.py then run 'renamer.py \<folder name\> '.
   The createFiles.py is just for testing. For more on usage see help wtih 'renamer.py -h'
  
  Notes:
