@@ -6,11 +6,10 @@ import multiprocessing
 from ntpath import join
 from pathlib import Path
 import shutil
-from helpers import inputYN
+from helpers import inputYN, mainParser
 import os
 import sys
 import uuid
-import argparse
 try:
     from PIL import Image
     from tqdm import tqdm
@@ -63,7 +62,28 @@ def webmConverter(args):
 
 
 def webpConverter(args):
-    """"""
+    """ inputFile, outputFile, filename, multi = args"""
+    inputFile, outputFile, filename, multi = args
+
+    try:
+        img = Image.open(inputFile).convert("RGB")
+        img.save(outputFile, "jpeg")
+    except Exception as error:
+        print(error)
+        try:
+            os.remove(outputFile)
+        except:
+            pass
+        if multi:
+            return filename+".webp"
+        else:
+            oldNames.append(filename+".webp")
+    else:
+        os.remove(inputFile)
+        if multi:
+            return filename+".jpeg"
+        else:
+            oldNames.append(filename+".jpeg")
 
 
 
@@ -88,38 +108,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
 
-    parser = argparse.ArgumentParser(description="Python script to rename all files (except: dotfiles and folders) inside a folder with random names.\
-                                                    It will create a backup folder '.name_backups' where a file with old names and new names are saved")
-
-    parser.add_argument('Path',
-                       metavar='<path>',
-                       type=str,
-                       help='Path to folder with files you want renamed.')
-
-    parser.add_argument('--backup',
-                       metavar="<path>",
-                       type=str,
-                       help='Path to backup folder. Default path is .name_backups/')
-
-    parser.add_argument("-m", "--multithreading", 
-                        required=False,
-                        action='store_true',
-                        help="WARNING MIGHT BE BUGGY! USE AT YOUR OWN RISK! Enable multiprocessing.")
-
-    parser.add_argument("-cp", "--convertP", 
-                        required=False,
-                        action='store_true',
-                        help="Will convert .webp to .jpeg without asking the user.")
-    
-    parser.add_argument("-cv", "--convertV", 
-                        required=False,
-                        action='store_true',
-                        help="Will convert .webm to .mp4 without asking the user.")
-    
-    parser.add_argument("-s", "--script", 
-                        required=False,
-                        action='store_true',
-                        help="Will skip all user input, useful when ran by other scripts. Can be combined with -c")
+    parser = mainParser()
 
     args = parser.parse_args()
     
@@ -130,6 +119,9 @@ if __name__ == '__main__':
 
     if args.backup:
         backupFolder = args.backup.strip("\\")
+
+    if args.cpus:
+        cpuCores = int(args.cpus)
 
 
     if not Path(renamingFolder).is_dir():
@@ -200,20 +192,11 @@ if __name__ == '__main__':
                     inputFile = f"{renamingFolder}/{filename}.webp"
                     outputFile = f"{renamingFolder}/{filename}.jpeg"
 
-                    try:
-                        img = Image.open(inputFile).convert("RGB")
-                        img.save(outputFile, "jpeg")
-                    except Exception as error:
-                        print(error)
-                        try:
-                            os.remove(outputFile)
-                        except:
-                            pass
-                        oldNames.append(entry.name)
-
+                    if multiprocessingEnabled:
+                        p = pool.apply_async(webpConverter, args=([inputFile, outputFile, filename, True],))
+                        processes.append(p)
                     else:
-                        os.remove(inputFile)
-                        oldNames.append(filename+".jpeg")
+                        webpConverter([inputFile, outputFile, filename, False])
                 
                 elif ext == ".webm" and convertWebm:
                     inputFile = f"{renamingFolder}/{filename}.webm"
