@@ -5,24 +5,25 @@ import shutil
 from multiprocessing import Pool
 from binascii import hexlify
 from helpers import inputYN
+import uuid
 
 
 def creator(amount):
     for _ in range(amount):
-        name = hexlify(os.urandom(6))
+        name = hexlify(uuid.uuid4().hex)
         filetype = choice(["jpg","png","gif","mp4","jpeg"])
         with open(f"{tmpFolder}/{name}.{filetype}", "x") as file:
             file.write(f"Info about this file.\nName: {name}\nFiletype: {filetype}\n")
     print(f'Process: {os.getpid()} | Finished.')
 
-# Unused Code! Just some recursive testing.
-#def recreator(amount):
-#    name = hexlify(os.urandom(6))
-#    filetype = choice(["jpg","png","gif","mp4","jpeg"])
-#    with open(f"{tmpFolder}/{name}.{filetype}", "x") as file:
-#        file.write(f"Info about this file.\nName: {name}\nFiletype: {filetype}\n")
-#    if amount:
-#        recreator(amount - 1)
+def singleCreator(folder: str,amount: int, seedGen):
+    for _ in range(amount):
+        seed = seedGen.getrandbits(128)
+        name = uuid.UUID(int=seed, version=4).hex
+        filetype = ["jpg","png","gif","mp4","jpeg"]
+        filetype = filetype[seedGen.randint(0,4)]
+        with open(f"{folder}/{name}.{filetype}", "x") as file:
+            file.write(f"Info about this file.\nName: {name}\nFiletype: {filetype}\n")
 
 tmpFolder = "Example_folder"
 filesToCreate = 10_000
